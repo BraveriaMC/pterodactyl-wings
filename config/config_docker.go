@@ -48,6 +48,9 @@ type DockerConfiguration struct {
 	// for containers run through the daemon.
 	Network DockerNetworkConfiguration `json:"network" yaml:"network"`
 
+	// List of existing network each new container must be connected to
+	ConnectedNetworks []string `default:"[]" json:"connected_networks" yaml:"connected_networks"`
+
 	// Domainname is the Docker domainname for all containers.
 	Domainname string `default:"" json:"domainname" yaml:"domainname"`
 

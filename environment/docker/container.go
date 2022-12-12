@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
 	"github.com/pterodactyl/wings/config"
@@ -257,9 +258,26 @@ func (e *Environment) Create() error {
 		UsernsMode:  container.UsernsMode(cfg.Docker.UsernsMode),
 	}
 
-	if _, err := e.client.ContainerCreate(ctx, conf, hostConf, nil, nil, e.Id); err != nil {
+	if container_response, err := e.client.ContainerCreate(ctx, conf, hostConf, nil, nil, e.Id); err != nil {
 		return errors.Wrap(err, "environment/docker: failed to create container")
 	}
+
+	// Connect the new container to networks specified in configuration file
+	for i := 0; i < len(cfg.Docker.ConnectedNetworks); i++ {
+		// Get the network data from Docker API
+		// This action is used to check that the network actually exist
+        network_name := string(cfg.Docker.ConnectedNetworks[i])
+		if docker_network, err := e.client.NetworkInspect(ctx, network_name); err != nil {
+			if !e.client.IsErrNotFound(err) {
+				return errors.Wrap(err, "environment/docker: network doesn't exist")
+			}
+		}
+
+		// Connect the network to the container
+		if _, err := e.client.NetworkConnect(ctx, docker_network.ID, container_response.ID, nil); err != nil {
+			return errors.Wrap(err, "environment/docker: failed to connect network")
+		}
+    }
 
 	return nil
 }
